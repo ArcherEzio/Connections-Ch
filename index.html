@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="ta">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Connections - Chennai</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            background-color: #f0f0f0;
+            margin: 20px;
+        }
+        #game-container {
+            max-width: 600px;
+            margin: 0 auto;
+        }
+        #grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 10px;
+            margin: 20px 0;
+        }
+        .panel {
+            background-color: #fff;
+            border: 2px solid #333;
+            padding: 20px;
+            cursor: pointer;
+            font-size: 18px;
+            transition: background-color 0.3s;
+        }
+        .panel.selected {
+            background-color: #ffeb3b;
+        }
+        #submit-btn {
+            padding: 10px 20px;
+            font-size: 16px;
+            background-color: #4caf50;
+            color: white;
+            border: none;
+            cursor: pointer;
+            margin-top: 20px;
+        }
+        #submit-btn:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+        }
+        #feedback {
+            margin-top: 20px;
+            font-size: 18px;
+            color: #d32f2f;
+        }
+        #lives {
+            font-size: 24px;
+            margin-top: 20px;
+        }
+        #results {
+            margin-top: 20px;
+            text-align: left;
+            background-color: #fff;
+            padding: 20px;
+            border-radius: 5px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        #results h2 {
+            color: #d32f2f;
+            margin-bottom: 15px;
+        }
+        #results .group {
+            margin-bottom: 15px;
+        }
+        #results .group-title {
+            font-weight: bold;
+            color: #388e3c;
+        }
+        #results .group-words {
+            color: #333;
+        }
+    </style>
+</head>
+<body>
+    <div id="game-container">
+        <h1>Connections - Chennai</h1>
+        <div id="lives">Lives: ••••</div>
+        <div id="grid"></div>
+        <button id="submit-btn" disabled>Submit</button>
+        <div id="feedback"></div>
+        <div id="results"></div>
+    </div>
+
+    <script>
+        // Game data
+        const groups = [
+            {
+                words: ["சைக்கிள்", "நூல்", "ரீல்", "பட்டம்"],
+                title: "விடக்கூடிய விஷயங்கள்"
+            },
+            {
+                words: ["கார்", "பைக்", "ஆட்டோ", "பேருந்து"],
+                title: "பெட்ரோலில் இயங்கும் வாகனங்கள்"
+            },
+            {
+                words: ["ரவி", "சூர்யா", "ஆதித்யா", "கதிர்"],
+                title: "சூரியனின் பெயர்கள்"
+            },
+            {
+                words: ["திரிஷா", "ஷோபிதா", "ஷாலினி", "மனிஷா கொய்ராலா"],
+                title: "பெயரில் 'ஷ' வரும் நடிகைகள்"
+            }
+        ];
+
+        // Flatten words for initial grid and shuffle
+        let words = groups.flatMap(group => group.words);
+        words = shuffle(words);
+
+        // Game state
+        let lives = 5;
+        let selectedPanels = [];
+        const grid = document.getElementById("grid");
+        const submitBtn = document.getElementById("submit-btn");
+        const feedback = document.getElementById("feedback");
+        const livesDisplay = document.getElementById("lives");
+        const resultsDisplay = document.getElementById("results");
+
+        // Initialize grid
+        function initGrid() {
+            grid.innerHTML = "";
+            words.forEach(word => {
+                const panel = document.createElement("div");
+                panel.classList.add("panel");
+                panel.textContent = word;
+                panel.addEventListener("click", () => togglePanel(panel));
+                grid.appendChild(panel);
+            });
+        }
+
+        // Shuffle array
+        function shuffle(array) {
+            for (let i = array.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [array[i], array[j]] = [array[j], array[i]];
+            }
+            return array;
+        }
+
+        // Toggle panel selection
+        function togglePanel(panel) {
+            if (lives <= 0) return; // Game over, no interaction
+            if (panel.classList.contains("selected")) {
+                panel.classList.remove("selected");
+                selectedPanels = selectedPanels.filter(p => p !== panel);
+            } else if (selectedPanels.length < 4) {
+                panel.classList.add("selected");
+                selectedPanels.push(panel);
+            }
+            submitBtn.disabled = selectedPanels.length !== 4;
+        }
+
+        // Handle submission
+        submitBtn.addEventListener("click", () => {
+            const selectedWords = selectedPanels.map(panel => panel.textContent);
+            const group = groups.find(g => 
+                selectedWords.every(word => g.words.includes(word)) && 
+                selectedWords.length === 4
+            );
+
+            if (group) {
+                // Good submission
+                feedback.textContent = group.title;
+                feedback.style.color = "#388e3c";
+                selectedPanels.forEach(panel => panel.remove());
+                words = words.filter(word => !selectedWords.includes(word));
+                selectedPanels = [];
+                submitBtn.disabled = true;
+
+                if (words.length === 0) {
+                    // Win condition
+                    feedback.textContent = "Congratulations! You’ve won!";
+                    resultsDisplay.innerHTML = "";
+                    submitBtn.disabled = true;
+                }
+            } else {
+                // Bad submission
+                feedback.textContent = "These words don’t belong together.";
+                feedback.style.color = "#d32f2f";
+                lives--;
+                updateLives();
+                selectedPanels.forEach(panel => panel.classList.remove("selected"));
+                selectedPanels = [];
+                submitBtn.disabled = true;
+
+                if (lives === 0) {
+                    endGame();
+                }
+            }
+        });
+
+        // Update lives display
+        function updateLives() {
+            if (lives > 1) {
+                livesDisplay.textContent = "Lives: " + "•".repeat(lives - 1);
+            } else if (lives === 1) {
+                livesDisplay.textContent = "Lives: (Final Life)";
+            } else {
+                livesDisplay.textContent = "Lives: (Game Over)";
+            }
+        }
+
+        // End game with neat results
+        function endGame() {
+            grid.innerHTML = ""; // Clear the grid
+            feedback.textContent = ""; // Clear feedback
+            submitBtn.disabled = true;
+
+            // Create results display
+            resultsDisplay.innerHTML = "<h2>Game Over!</h2>";
+            groups.forEach(group => {
+                const groupDiv = document.createElement("div");
+                groupDiv.classList.add("group");
+
+                const title = document.createElement("div");
+                title.classList.add("group-title");
+                title.textContent = group.title;
+
+                const wordsList = document.createElement("div");
+                wordsList.classList.add("group-words");
+                wordsList.textContent = group.words.join(", ");
+
+                groupDiv.appendChild(title);
+                groupDiv.appendChild(wordsList);
+                resultsDisplay.appendChild(groupDiv);
+            });
+        }
+
+        // Start game
+        initGrid();
+    </script>
+</body>
+</html>
